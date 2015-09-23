@@ -8,15 +8,16 @@
  *  For each topology return Map<Integer, List<Integer>> <node, neighbors>
  **/
  
+ import util.Random
+ 
  object Topology extends App{
      
     
-    //createTopology("line", 4)
-    //createTopology("full", 4)
+    createTopology("line", 4)
+    createTopology("full", 4)
+    createTopology("3D", 9)
+    createTopology("imp3D", 9)
     
-    create3D(10)
-    create3D(5)
-    create3D(8)
     
     def createTopology(topology : String, N : Int) = {
         
@@ -25,8 +26,8 @@
         topology match {
             case "line" => top = createLine(N)
             case "full" => top = createFull(N)
-            case "3D" => println("3D 3D 3D")
-            case "imp3D" => println("IMPERFECT 3D")
+            case "3D" => top = create3D(N)
+            case "imp3D" => top = createImp3D(N)
             case _ => println("ERR: Cant create topology!!")
         }
         
@@ -39,9 +40,10 @@
         var top : Map[Int, List[Int]] = Map()
         var n = 1
         for (n <- 1 to N) {
-            if (n == 1) top += (1 -> List(2))
-            else if (n == N) top += (n -> List(n-1))
-            else top += (n -> List(n-1, n+1))
+            var neis : List[Int] = List()
+            if (isWithinBoundary(n-1, N, List())) neis = neis ::: List(n-1)
+            if (isWithinBoundary(n+1, N, List())) neis = neis ::: List(n+1)
+            top += (n -> neis)
         }
         
         return top
@@ -60,15 +62,11 @@
     }
     
     def getFullNeis(n : Int, N: Int) : List[Int] = {
-        //println("get neis for: " + n)
         var neis : List[Int] = List()
         var i = 1
         for (i <- 1 to N) {
-            if (i != n) {
-                neis = neis ::: List(i)
-            }
+            if (isWithinBoundary(i, N, List(n))) neis = neis ::: List(i)
         }
-        //println("neis: " + neis)
         return neis
     }
     
@@ -77,27 +75,68 @@
         var total : Int = N
         if (N%4 != 0) {
             total = N + 4 - N%4
+            println("Adding "+ (4 - N%4) + " extra elements to make it square!!")
         }
-        println(total)
         var top : Map[Int, List[Int]] = Map()
         
         var n = 1
-        for (n <- 1 to N) {
+        for (n <- 1 to total) {
             top += (n -> get3DNeis(n, total))
         }
-        
         return top
     }
     
     def get3DNeis(n : Int, N : Int) : List[Int] = {
         var neis : List[Int] = List()
+        
+        if (isWithinBoundary(n-4, N, List())) neis = neis ::: List(n-4)  //elem in prev square
+        if (isWithinBoundary(n+4, N, List())) neis = neis ::: List(n+4)  //elem in next square
+        
+        if (n%4 == 0) {
+            if (isWithinBoundary(n-3, N, List())) neis = neis ::: List(n-3)
+        }
+        else if (isWithinBoundary(n+1, N, List())) neis = neis ::: List(n+1) //next elem in same square
+        
+        if (n%4 == 1) {
+            if (isWithinBoundary(n+3, N, List())) neis = neis ::: List(n+3)
+        }
+        else if (isWithinBoundary(n-1, N, List())) neis = neis ::: List(n-1) //prev elem in same square
+        
         return neis
+    }
+    
+    //Nodes should be from 1 to N
+    def isWithinBoundary(n : Int, N : Int, exclude : List[Int]) : Boolean = {
+        return n >= 1 && n <= N && ((Nil eq exclude) || !exclude.contains(n))
     }
     
     def createImp3D(N : Int) : Map[Int, List[Int]] = {
         println("creating Imperfect-3D Topology with " + N + " nodes !!")
         var top : Map[Int, List[Int]] = Map()
+        top = create3D(N);
+        top = insertImperfection(top, N)
         return top
+    }
+    
+    def insertImperfection(top : Map[Int, List[Int]], N : Int) : Map[Int, List[Int]] = {
+        var newtop : Map[Int, List[Int]] = Map()
+        top.foreach {
+            
+            tuple => var neis : List[Int] = tuple._2
+                     var randNei : Int = getRand(N, neis ::: List(tuple._1))
+                     neis = neis ::: List(randNei)
+                     newtop += (tuple._1 -> neis)
+        }
+        return newtop
+    }
+    
+    def getRand(N : Int, existingNeis : List[Int]) : Int = {
+        var rand : Int = 1
+        rand = Random.nextInt(N) + 1
+        while ( existingNeis.contains(rand)) {
+            rand = Random.nextInt(N) + 1
+        }
+        return rand
     }
     
     def printTopology(top : Map[Int, List[Int]]) = {
