@@ -13,10 +13,10 @@
  object Topology extends App{
      
     
-    createTopology("line", 4)
-    createTopology("full", 4)
-    createTopology("3D", 9)
-    createTopology("imp3D", 9)
+    //createTopology("line", 4)
+    //createTopology("full", 4)
+    //createTopology("3D", 9)
+    //createTopology("imp3D", 9)
     
     
     def createTopology(topology : String, N : Int) : Map[Int, List[Int]] = {

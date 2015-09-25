@@ -16,21 +16,31 @@ import Gossip.algo_G
           
           var topologies = List("line", "full", "3D", "imp3D")
           var algorithms  = List("gossip", "push-sum")
-          if (args.length < 3  || !topologies.contains(args(1))  || !algorithms.contains(args(2))) {
+          /*if (args.length < 3  || !topologies.contains(args(1))  || !algorithms.contains(args(2))) {
               println("Please Enter 3 Args ::: NumNodes Topology{full, 3D, line, imp3D} algorithm{gossip, push-sum}")
               return
           }
           
-          var top = createTopology(args(1), Integer.parseInt(args(0)))
+          var topology = args(1)
+          var algorithm = args(2)*/
+          
+          var topology = "imp3D" //"3D" //"full" //line"
+          var algorithm = "gossip"
+          
+          println("start creating topology")
+          var top = createTopology(topology, 5)
+          println("stop creating topology")
           
           var N = top.keys.size
           
-          args(2) match {
-              case "gossip" => algo_G()
+          var C = 3;
+          
+          algorithm match {
+              case "gossip" => algo_G(N, C, top)
               case default  => println("Default")
           }
           
-          
+          println("LAST LINE")
      }
      
  }
