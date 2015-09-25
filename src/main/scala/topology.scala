@@ -19,7 +19,7 @@
     createTopology("imp3D", 9)
     
     
-    def createTopology(topology : String, N : Int) = {
+    def createTopology(topology : String, N : Int) : Map[Int, List[Int]] = {
         
         var top : Map[Int, List[Int]] = Map()
         
@@ -32,6 +32,8 @@
         }
         
         printTopology(top)
+        
+        return top
      
     }
     
