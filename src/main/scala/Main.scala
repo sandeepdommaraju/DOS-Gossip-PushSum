@@ -9,6 +9,7 @@
 import akka.actor.{ ActorRef, ActorSystem, Props, Actor, Inbox }
 import Topology.createTopology
 import Gossip.algo_G
+import PushSum.algo_PS
  
  object Main {
      
@@ -24,11 +25,12 @@ import Gossip.algo_G
           var topology = args(1)
           var algorithm = args(2)*/
           
-          var topology = "imp3D" //"3D" //"full" //line"
-          var algorithm = "gossip"
+          var topology = "full" //"3D" //"full" //line"
+          //var algorithm = "gossip"
+          var algorithm = "push-sum"
           
           println("start creating topology")
-          var top = createTopology(topology, 5)
+          var top = createTopology(topology, 3)
           println("stop creating topology")
           
           var N = top.keys.size
@@ -38,8 +40,9 @@ import Gossip.algo_G
           var R = 3
           
           algorithm match {
-              case "gossip" => algo_G(N, C, R, top)
-              case default  => println("Default")
+              case "gossip"     => algo_G(N, C, R, top)
+              case "push-sum"   => algo_PS(N, top)
+              case default      => println("Default")
           }
           
           println("LAST LINE")

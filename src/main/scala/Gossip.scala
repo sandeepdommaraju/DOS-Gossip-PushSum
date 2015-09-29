@@ -15,7 +15,11 @@
  import scala.collection
  import scala.util.control.Breaks._
  
+ case object CreateGossipWorkers
+ case object Algo
  case class Rumor(rumor: String)
+ case object StoppedRumor
+ case object Stop
  case object StopAck
  
  object Gossip {
@@ -24,8 +28,8 @@
          
          val system = ActorSystem("Gossip")
          val master = system.actorOf(Props(new GossipMaster(N, C, R, top)), "gossipmaster")
-         master ! "createGossipWorkers"
-         master ! "algo"
+         master ! CreateGossipWorkers
+         master ! Algo
          println("Gossip.algo_G ENDS")
          
      }
@@ -40,8 +44,8 @@
      var stopAckCount = 0
      
      def receive = {
-         case "createGossipWorkers" => createGossipWorkers()
-         case "algo" => var r = 0
+         case CreateGossipWorkers => createGossipWorkers()
+         case Algo => var r = 0
                       for (r <- 1 to R) {
                           var rumor = rumors(r-1)
                           var startIdx = Random.nextInt(N) + 1
@@ -49,7 +53,7 @@
                           workerPool(startIdx) ! Rumor(rumor)
                       }
                       println("ALGO ENDS")
-         case "stoppedRumor" => stoppedRumors += 1
+         case StoppedRumor => stoppedRumors += 1
                                 println("stoppedRumors: " + stoppedRumors)
                                 if (stoppedRumors == R) {
                                     stopAllWorkers()
@@ -65,12 +69,12 @@
      def stopAllWorkers() {
          var i = 1
          for(i <- 1 to N) {
-             workerPool(i) ! "stop"
+             workerPool(i) ! Stop
          }
      }
      
      def createGossipWorkers() {
-         var i = 1
+        var i = 1
         for (i <- 1 to N){
             workerPool(i) = context.actorOf(Props(new GossipWorker(N, C, R, top, workerPool)), name="Worker"+i)
         }
@@ -80,26 +84,25 @@
  
  class GossipWorker(N : Int, C: Int, R : Int, top : Map[Int, List[Int]], workerPool : Array[ActorRef]) extends Actor {
      
-     var rumorMap = scala.collection.mutable.Map[String, Int]()
+     var rumorMap   = scala.collection.mutable.Map[String, Int]()
+     var workername = self.path.name
+     var workerId   = Integer.parseInt(workername.substring(6))
      
      def receive = {
          case Rumor(rumor) => putInMap(rumor)
                               if (terminationCheck(rumor)) {
                                   println(self.path.name + " :: " + rumorMap)
                                   println("stop sending " + rumor + " from: " + self.path.name)
-                                  //sender ! "stoppedRumor"
-                                  context.parent ! "stoppedRumor"
+                                  context.parent ! StoppedRumor
                               } else {
                                     println(self.path.name + " :: " + rumorMap)
-                                    var workername = self.path.name
-                                    var neis = getNeis(top, Integer.parseInt(workername.substring(6))) // get Neis of curr in topology
+                                    var neis = getNeis(top, workerId) // get Neis of curr in topology
                                     var randNei = getRandomNei(neis)
                                     workerPool(randNei) ! Rumor(rumor)
                               }
-         case "stop" =>  println("Stopping " + self.path.name)
+         case Stop =>    println("Stopping " + self.path.name)
                          context.parent ! StopAck
                          context.stop(self)
-         //case "stoppedRumor" => sender ! "stoppedRumor"
          case default => println("GossipWorker - DEFAULT")
      }
      
