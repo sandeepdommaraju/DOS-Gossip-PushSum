@@ -16,6 +16,7 @@
  import scala.util.control.Breaks._
  
  case class Rumor(rumor: String)
+ case object StopAck
  
  object Gossip {
      
@@ -36,6 +37,7 @@
      var workerPool = new Array[ActorRef](N+1)
      var rumors = List.range(1, R + 1).map( x => "Rumor" + x)
      var stoppedRumors = 0
+     var stopAckCount = 0
      
      def receive = {
          case "createGossipWorkers" => createGossipWorkers()
@@ -52,6 +54,11 @@
                                 if (stoppedRumors == R) {
                                     stopAllWorkers()
                                 }
+         case StopAck => stopAckCount += 1
+                         if (stopAckCount == N){
+                             println("SHUT DOWN")
+                             context.system.shutdown()
+                         }
          case default => println("GossipMaster - DEFAULT")
      }
      
@@ -60,8 +67,6 @@
          for(i <- 1 to N) {
              workerPool(i) ! "stop"
          }
-         println("SYSTEM SHUTDOWN")
-         context.system.shutdown
      }
      
      def createGossipWorkers() {
@@ -83,6 +88,7 @@
                                   println(self.path.name + " :: " + rumorMap)
                                   println("stop sending " + rumor + " from: " + self.path.name)
                                   //sender ! "stoppedRumor"
+                                  context.parent ! "stoppedRumor"
                               } else {
                                     println(self.path.name + " :: " + rumorMap)
                                     var workername = self.path.name
@@ -91,6 +97,7 @@
                                     workerPool(randNei) ! Rumor(rumor)
                               }
          case "stop" =>  println("Stopping " + self.path.name)
+                         context.parent ! StopAck
                          context.stop(self)
          //case "stoppedRumor" => sender ! "stoppedRumor"
          case default => println("GossipWorker - DEFAULT")
