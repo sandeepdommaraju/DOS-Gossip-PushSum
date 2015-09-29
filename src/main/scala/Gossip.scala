@@ -10,21 +10,129 @@
   * DOUBT: How to implement heartbeat or clock of the system
   **/ 
  
+ import akka.actor.{ ActorRef, ActorSystem, Props, Actor, Inbox }
  import util.Random
  import scala.collection
  import scala.util.control.Breaks._
  
+ case class Rumor(rumor: String)
+ 
  object Gossip {
      
-     def algo_G(N : Int, C : Int, top : Map[Int, List[Int]]) = {
+     def algo_G(N : Int, C : Int, R : Int, top : Map[Int, List[Int]]) = {
+         
+         val system = ActorSystem("Gossip")
+         val master = system.actorOf(Props(new GossipMaster(N, C, R, top)), "gossipmaster")
+         master ! "createGossipWorkers"
+         master ! "algo"
+         println("Gossip.algo_G ENDS")
+         
+     }
      
-         //var N = 5 //total nodes
+ }
+ 
+ class GossipMaster(N : Int, C : Int, R : Int, top : Map[Int, List[Int]]) extends Actor {
+     
+     var workerPool = new Array[ActorRef](N+1)
+     var rumors = List.range(1, R + 1).map( x => "Rumor" + x)
+     var stoppedRumors = 0
+     
+     def receive = {
+         case "createGossipWorkers" => createGossipWorkers()
+         case "algo" => var r = 0
+                      for (r <- 1 to R) {
+                          var rumor = rumors(r-1)
+                          var startIdx = Random.nextInt(N) + 1
+                          //sleep
+                          workerPool(startIdx) ! Rumor(rumor)
+                      }
+                      println("ALGO ENDS")
+         case "stoppedRumor" => stoppedRumors += 1
+                                println("stoppedRumors: " + stoppedRumors)
+                                if (stoppedRumors == R) {
+                                    stopAllWorkers()
+                                }
+         case default => println("GossipMaster - DEFAULT")
+     }
+     
+     def stopAllWorkers() {
+         var i = 1
+         for(i <- 1 to N) {
+             workerPool(i) ! "stop"
+         }
+         println("SYSTEM SHUTDOWN")
+         context.system.shutdown
+     }
+     
+     def createGossipWorkers() {
+         var i = 1
+        for (i <- 1 to N){
+            workerPool(i) = context.actorOf(Props(new GossipWorker(N, C, R, top, workerPool)), name="Worker"+i)
+        }
+        println("CREATED WORKERS")
+     }
+ }
+ 
+ class GossipWorker(N : Int, C: Int, R : Int, top : Map[Int, List[Int]], workerPool : Array[ActorRef]) extends Actor {
+     
+     var rumorMap = scala.collection.mutable.Map[String, Int]()
+     
+     def receive = {
+         case Rumor(rumor) => putInMap(rumor)
+                              if (terminationCheck(rumor)) {
+                                  println(self.path.name + " :: " + rumorMap)
+                                  println("stop sending " + rumor + " from: " + self.path.name)
+                                  //sender ! "stoppedRumor"
+                              } else {
+                                    println(self.path.name + " :: " + rumorMap)
+                                    var workername = self.path.name
+                                    var neis = getNeis(top, Integer.parseInt(workername.substring(6))) // get Neis of curr in topology
+                                    var randNei = getRandomNei(neis)
+                                    workerPool(randNei) ! Rumor(rumor)
+                              }
+         case "stop" =>  println("Stopping " + self.path.name)
+                         context.stop(self)
+         //case "stoppedRumor" => sender ! "stoppedRumor"
+         case default => println("GossipWorker - DEFAULT")
+     }
+     
+     def putInMap(rumor : String) = {
+         rumorMap.get(rumor) match {
+                                       case Some(count : Int)  => rumorMap.update(rumor , count + 1)
+                                       case None               => rumorMap += (rumor -> 1)
+                                   }
+     }
+     
+     def terminationCheck(rumor : String) : Boolean= {
+         return rumorMap(rumor) == C
+     }
+     
+     def getNeis(top : Map[Int, List[Int]], curr : Int) : List[Int] = {
+         return top(curr)
+
+     }
+     
+     def getRandomNei(neis : List[Int]) : Int= {
+         return neis(Random.nextInt(neis.length))
+     }
+     
+     /*def terminateWorker() : Boolean = {
+         var terminate = true
+         var count = 0
+         rumorMap.foreach {
+             tuple => count += 1
+                      terminate = terminate && terminationCheck(tuple._1)
+         }
+         return terminate && (count == R)
+     }*/
+     
+ }
+ 
+ 
+      /*def algo_G_old(N : Int, C : Int, R : Int, top : Map[Int, List[Int]]) = {
+     
          
-         //var C = 10 //stop if rumor count = C
-         
-         //var top : Map[Int, List[Int]] = Map() //LoadTopology
-         
-         var rumors = List("Rumor1", "Rumor2", "Rumor3")
+         var rumors = List.range(1, R + 1).map( x => "Rumor" + x)
          
          var nodeMap = scala.collection.mutable.Map[Int, scala.collection.mutable.Map[String, Int]]() // <nodeNum , <Rumor, rumorCount>>
          
@@ -138,10 +246,4 @@
             case None   => nodeMap += (key -> collection.mutable.Map(rumor -> 1))
          }
          println(nodeMap)
-     }
-     
-     /*def getFromMap() = {
-         
      }*/
-     
- }

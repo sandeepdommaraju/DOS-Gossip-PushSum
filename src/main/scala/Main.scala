@@ -33,10 +33,12 @@ import Gossip.algo_G
           
           var N = top.keys.size
           
-          var C = 3;
+          var C = 3
+          
+          var R = 3
           
           algorithm match {
-              case "gossip" => algo_G(N, C, top)
+              case "gossip" => algo_G(N, C, R, top)
               case default  => println("Default")
           }
           
