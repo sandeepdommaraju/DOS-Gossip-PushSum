@@ -10,7 +10,7 @@
  
  import util.Random
  
- object Topology extends App{
+ object Topology {
      
     
     //createTopology("line", 4)
@@ -31,7 +31,7 @@
             case _ => println("ERR: Cant create topology!!")
         }
         
-        printTopology(top)
+        //printTopology(top)
         
         return top
      

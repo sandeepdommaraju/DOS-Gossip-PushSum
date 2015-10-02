@@ -25,13 +25,16 @@
  case object StartPushSum
  case object Algo_PS
  case class Message(tS : Double, tW : Double)
+ case object StopAll
+ case object StopMe
+ case object StoppedWorker
  
 object PushSum {
      
      def algo_PS(N : Int, top : Map[Int, List[Int]]) = {
          
          val system = ActorSystem("PushSum")
-         val master = system.actorOf(Props(new PushSumMaster(N, top)), "pushsummaster")
+         val master = system.actorOf(Props(new PushSumMaster(N, top, System.currentTimeMillis)), "pushsummaster")
          master ! CreatePushSumWorkers
          master ! Algo_PS
          println("Gossip.algo_PS ENDS")
@@ -40,16 +43,30 @@ object PushSum {
      
  }
  
- class PushSumMaster(N : Int, top : Map[Int, List[Int]]) extends Actor {
+ class PushSumMaster(N : Int, top : Map[Int, List[Int]], startTime: Long) extends Actor {
      
      var workerPool = new Array[ActorRef](N+1)
+     var stopcount = 0
      
      def receive = {
          case CreatePushSumWorkers => createPushSumWorkers()
          case Algo_PS =>    var startIdx = Random.nextInt(N) + 1
                             workerPool(startIdx) ! StartPushSum
                             println("todo")
+         case StopAll => stopAll()    
+         case StoppedWorker => stopcount += 1
+                               if (stopcount == N){
+                                   context.system.shutdown()
+                                   println("PUSHSUM Time: " + (System.currentTimeMillis - startTime))
+                               }
          case default => println("PushSumMaster DEFAULT")
+     }
+     
+     def stopAll() = {
+         var i = 1
+         for(i <- 1 to N) {
+             workerPool(i) ! StopMe
+         }
      }
      
      def createPushSumWorkers() {
@@ -79,16 +96,18 @@ object PushSum {
          case Message(tS, tW)   => s += tS
                                    w += tW
                                    if (stopCheck()) {
-                                        println("STOP ME")
-                                        stopMe()
+                                        context.parent ! StopAll
+                                        //stopMe()
                                    } else{
                                        propogate()
                                    }
-         
+         case StopMe => stopMe()
          case default => println("PushSumWorker DEFAULT")
      }
      
      def stopMe() {
+         println("STOP ME " + workername)
+         context.parent ! StoppedWorker
          context.stop(self)
      }
      
@@ -108,7 +127,7 @@ object PushSum {
      def stopCheck() : Boolean = {
          q.dequeue()
          q.enqueue(s/w)
-         println("Evaluating stopCheck")
+         //println("Evaluating stopCheck")
          diff(q.get(0), q.get(1)) match {
              case Some(value1) => if (value1 > threshold) {
                                 return false
@@ -133,7 +152,7 @@ object PushSum {
          var ad : Double = a.getOrElse(0) 
          var bd : Double = b.getOrElse(0)
          var cd = ad - bd
-         println("DIFF: " + a + " " + b + " :: "+ Some(math.abs(cd)))
+         //println("DIFF: " + a + " " + b + " :: "+ Some(math.abs(cd)))
          Some(math.abs(cd))
      }
      
