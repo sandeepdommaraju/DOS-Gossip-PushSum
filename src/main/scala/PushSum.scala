@@ -20,6 +20,7 @@
  import scala.collection
  import scala.util.control.Breaks._
  import scala.math.BigDecimal
+ import scala.concurrent.duration._
  
  case object CreatePushSumWorkers
  case object StartPushSum
@@ -41,19 +42,36 @@ object PushSum {
          
      }
      
+     def algo_PS(N : Int, top : Map[Int, List[Int]], percent : Int) = {
+     }
+     
  }
  
  class PushSumMaster(N : Int, top : Map[Int, List[Int]], startTime: Long) extends Actor {
      
      var workerPool = new Array[ActorRef](N+1)
      var stopcount = 0
+     var terminate = false
+     val system = ActorSystem("PushSum")
      
      def receive = {
          case CreatePushSumWorkers => createPushSumWorkers()
          case Algo_PS =>    var startIdx = Random.nextInt(N) + 1
                             workerPool(startIdx) ! StartPushSum
-                            println("todo")
-         case StopAll => stopAll()    
+                            
+                           /* while(!terminate) {
+                                var i = 0
+                                for (i <- 1 to N){
+                                    //workerPool(i) ! StartPushSum
+                                    println("MESSAGE " + terminate)
+                                    system.scheduler.schedule(0 milliseconds, 2 milliseconds, workerPool(i), StartPushSum)(system.dispatcher)
+                                }
+                            }*/
+                            
+                            
+         case StopAll => //println("STOPPING ALL " + terminate)
+                         terminate = true
+                         stopAll()    
          case StoppedWorker => stopcount += 1
                                if (stopcount == N){
                                    context.system.shutdown()
@@ -67,6 +85,7 @@ object PushSum {
          for(i <- 1 to N) {
              workerPool(i) ! StopMe
          }
+         println("STOPPED ALL")
      }
      
      def createPushSumWorkers() {
@@ -83,7 +102,7 @@ object PushSum {
      var workername = self.path.name
      var workerId   = Integer.parseInt(workername.substring(6))
      var s : Double = workerId
-     var w : Double = 1
+     var w : Double = 0
      var q = scala.collection.mutable.Queue[Double]()
      q.enqueue(1000)
      q.enqueue(1000)
@@ -91,11 +110,14 @@ object PushSum {
      var threshold : Double = math.pow(10, -10)
      
      def receive = {
-         case StartPushSum      =>  propogate()
+         case StartPushSum      =>  w = 1
+                                    propogate()
                                     
          case Message(tS, tW)   => s += tS
                                    w += tW
+                                   printState()
                                    if (stopCheck()) {
+                                        println("STOP CHECK")
                                         context.parent ! StopAll
                                         //stopMe()
                                    } else{
@@ -112,11 +134,11 @@ object PushSum {
      }
      
      def propogate() {
-        printState()
         var neis = getNeis(top, workerId) // get Neis of curr in topology
         var randNei = getRandomNei(neis)
         s = s/2
         w = w/2
+        printState()
         workerPool(randNei) ! Message(s, w)
      }
      
@@ -125,9 +147,9 @@ object PushSum {
      }
      
      def stopCheck() : Boolean = {
-         q.dequeue()
+         
+        q.dequeue()
          q.enqueue(s/w)
-         //println("Evaluating stopCheck")
          diff(q.get(0), q.get(1)) match {
              case Some(value1) => if (value1 > threshold) {
                                 return false
