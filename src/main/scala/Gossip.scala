@@ -143,6 +143,8 @@ import scala.concurrent.Future
 	  val fallbackTimeout = 2 seconds
 	  implicit val timeout = new Timeout(5 seconds)
 	  require(fallbackTimeout < timeout.duration) 
+	  
+	  val failedBuf = scala.collection.mutable.ListBuffer.empty[String]
      
      def receive = {
          case Rumor(rumor) => putInMap(rumor)
@@ -158,22 +160,26 @@ import scala.concurrent.Future
                               }
                               
          case RumorImp(rumor) => putInMap(rumor)
-                                 Future successful "GOTCHA"
                                  if (terminationCheck(rumor)) {
                                       println(self.path.name + " :: " + rumorMap)
                                       println("stop sending " + rumor + " from: " + self.path.name)
                                       context.parent ! StoppedRumor
                                 } else {
                                     println(self.path.name + " :: " + rumorMap)
-                                    recurse(rumor)
+                                    sendMessage(rumor)
                                 }
          
          
          
          case Stop =>    println("Stopping " + self.path.name)
-                         context.parent ! StopAck
-                         context.stop(self)
+                         stopMe()
          case default => println("GossipWorker - DEFAULT")
+     }
+     
+     def stopMe() {
+         //println("STOP ME " + workername)
+         context.parent ! StopAck
+         context.stop(self)
      }
      
      def recurse(rumor : String) : Boolean = {
@@ -194,6 +200,38 @@ import scala.concurrent.Future
         return true
      }
      
+     def sendMessage(rumor : String) {
+         implicit val timeout = FiniteDuration(1,"seconds")
+         var neis = getNeis(top, workerId) // get Neis of curr in topology
+         
+         //println("Resolve One")
+         //println(context.self.path)
+         //println(context.parent.path)
+         
+         if (failedBuf.size == neis.size){
+             println("All Neighbors FAILED - CHECK !")
+             stopMe()
+         }
+         
+         var randNei = getRandomNei(neis)
+         while (failedBuf.contains(randNei)) {
+             randNei = getRandomNei(neis)
+         }
+         var randWorker = "Worker" + randNei
+         
+         context.actorSelection(context.parent.path+"/" + randWorker).resolveOne(timeout).onComplete {
+
+                case Success(actor) => 
+                  actor ! RumorImp(rumor);
+                  
+                case Failure(ex) =>
+                  println("Failure in Resolving "+ workerId)
+                  //connectedNodes = connectedNodes.filter (_ != connectedNodes(indexToSend))
+                  sendMessage(rumor)
+
+        }
+
+     }
      
      def putInMap(rumor : String) = {
          rumorMap.get(rumor) match {
