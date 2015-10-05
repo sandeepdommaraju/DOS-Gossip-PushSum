@@ -146,7 +146,6 @@ import scala.concurrent.Future
      
      def receive = {
          case Rumor(rumor) => putInMap(rumor)
-                              Future successful "GOTCHA"
                               if (terminationCheck(rumor)) {
                                   println(self.path.name + " :: " + rumorMap)
                                   println("stop sending " + rumor + " from: " + self.path.name)
@@ -159,6 +158,7 @@ import scala.concurrent.Future
                               }
                               
          case RumorImp(rumor) => putInMap(rumor)
+                                 Future successful "GOTCHA"
                                  if (terminationCheck(rumor)) {
                                       println(self.path.name + " :: " + rumorMap)
                                       println("stop sending " + rumor + " from: " + self.path.name)

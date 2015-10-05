@@ -13,7 +13,7 @@ import PushSum.algo_PS
  
  object Main {
      
-     def main(args: Array[String]) {
+     def main2(args: Array[String]) {
           
           var topologies = List("line", "full", "3D", "imp3D")
           var algorithms  = List("gossip", "push-sum")
